@@ -329,10 +329,6 @@ def report_effect_size(z_test_result: dict) -> None:
         h_label = "매우 큼(very large)"
 
     risk_ratio = p_A / p_B
-    odds_A = x_A / (n_A - x_A)
-    odds_B = x_B / (n_B - x_B)
-    odds_ratio = odds_A / odds_B
-    phi = math.sqrt(chi2_stat / (n_A + n_B))  # 2x2에서는 Cramér's V와 동일
 
     print("=" * 55)
     print("  [5/6] 효과크기(Effect Size)")
@@ -340,8 +336,7 @@ def report_effect_size(z_test_result: dict) -> None:
     print(f"  절대 차이(A-B):      {(p_A - p_B) * 100:.1f}%p")
     print(f"  Cohen's h:           {h:.3f}  ({h_label})")
     print(f"  상대위험도(A/B):     {risk_ratio:.2f}배  (A가 B보다 {risk_ratio:.2f}배 더 많이 선택됨)")
-    print(f"  오즈비(odds ratio):  {odds_ratio:.2f}")
-    print(f"  파이 계수(phi):      {phi:.3f}")
+
     print("=" * 55 + "\n")
 
 
