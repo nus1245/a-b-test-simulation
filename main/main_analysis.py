@@ -17,8 +17,13 @@ AB_TEST_SIMULATION.py, analyze.py)를 아래 순서 하나의 흐름으로 병�
     2) 공변량 균형 게이트 (원본: covariate_balance_check.py)
        — 표본 수 비율은 맞아도 그 안의 구성(연령대/채널/성별/시간대)이
          한쪽으로 쏠려 있으면 전환율 차이가 디자인 효과가 아닐 수 있다.
-    3) EDA 요약          (원본: analyze.py의 print_summary)
+    3) EDA 요약          (원본: analyze.py의 print_summary + 신규 시각화)
        — 군별 방문자 수·전환율, 세그먼트 crosstab, 체류시간, 찜→선택 전환율.
+         plot_segment_conversion_rates()는 4개 원본 파일에는 없던 신규 함수 —
+         "선택자 수" crosstab만으로는 군별 전체 선택률 차이(A > B) 때문에
+         특정 세그먼트가 실제보다 쏠려 보이는 착시가 생길 수 있어(예: 40대
+         선택자가 A=41명/B=8명), 세그먼트별 "선택률(%)"을 A/B 나란히 비교하는
+         막대그래프를 추가했다. 통계적 유의성 검정은 아니고 참고용 시각화다.
     4) 두 비율 z-검정     (원본: AB_TEST_SIMULATION.py 5번 섹션)
        — "A/B 선택률 차이가 우연이 아니라 진짜 디자인 효과인가?"를 검정.
          카이제곱 독립성 검정(2x2)으로 교차 검증.
@@ -40,6 +45,7 @@ import math
 import sqlite3
 
 import pandas as pd
+import matplotlib.pyplot as plt
 from scipy.stats import chisquare, chi2_contingency, norm
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -47,6 +53,10 @@ from database import get_db_path
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")  # Windows 콘솔(cp949) 한글/이모지 출력 깨짐 방지
+
+# Windows 기본 matplotlib은 한글 폰트가 없어 그래프의 한글이 네모(□)로 깨진다.
+plt.rcParams["font.family"] = "Malgun Gothic"
+plt.rcParams["axes.unicode_minus"] = False
 
 COVARIATES = ["channel", "age_group", "gender", "time_slot"]
 SRM_ALPHA = 0.01   # SRM 게이트는 본 검정(0.05)보다 보수적 — 놓치지 않는 쪽 우선
@@ -188,6 +198,29 @@ def print_summary(df: pd.DataFrame) -> None:
     print("=" * 55 + "\n")
 
 
+def plot_segment_conversion_rates(df: pd.DataFrame) -> None:
+    """세그먼트별로 A군/B군 선택률(%)을 나란히 비교해 어느 구간에서 A/B 효과가
+    두드러지는지 눈으로 확인한다 (통계적 유의성 검정 아님 — 참고용 시각화).
+
+    위 [ 연령대별 군 분포(선택자 기준) ] 같은 "선택자 수" crosstab은 군별
+    전체 선택률이 다르면(A 59.7% vs B 25.4%) 특정 세그먼트가 실제보다 더
+    쏠려 보이는 착시가 생길 수 있다 — 그래서 인원수가 아니라 세그먼트 내
+    "선택률"로 비교한다.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(11, 8))
+    for ax, col in zip(axes.flat, COVARIATES):
+        rates = df.groupby([col, "group_name"])["selected"].mean().unstack() * 100
+        rates.plot(kind="bar", ax=ax)
+        ax.set_title(f"{col}별 A/B 선택률")
+        ax.set_ylabel("선택률 (%)")
+        ax.tick_params(axis="x", rotation=20)
+        ax.legend(title="group")
+
+    fig.suptitle("세그먼트별 A vs B 선택률 비교 (참고용, 통계검정 아님)", fontsize=13)
+    fig.tight_layout()
+    plt.show()
+
+
 # ============================================================
 # 4. 두 비율 z-검정 — A/B 선택률 차이가 통계적으로 유의한가 (원본: AB_TEST_SIMULATION.py #5)
 # ============================================================
@@ -303,6 +336,7 @@ if __name__ == "__main__":
     check_srm(df)
     check_covariate_balance(df)
     print_summary(df)
+    plot_segment_conversion_rates(df)
     z_result = run_z_test(df)
     report_effect_size(z_result)
     export_csv(df)
