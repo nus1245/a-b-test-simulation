@@ -24,9 +24,10 @@ AB_TEST_SIMULATION.py, analyze.py)를 아래 순서 하나의 흐름으로 병�
          특정 세그먼트가 실제보다 쏠려 보이는 착시가 생길 수 있어(예: 40대
          선택자가 A=41명/B=8명), 세그먼트별 "선택률(%)"을 A/B 나란히 비교하는
          막대그래프를 추가했다. 통계적 유의성 검정은 아니고 참고용 시각화다.
-    4) 두 비율 z-검정     (원본: AB_TEST_SIMULATION.py 5번 섹션)
+    4) 두 비율 z-검정     (원본: AB_TEST_SIMULATION.py 5번 섹션 + 신규 시각화)
        — "A/B 선택률 차이가 우연이 아니라 진짜 디자인 효과인가?"를 검정.
-         카이제곱 독립성 검정(2x2)으로 교차 검증.
+         카이제곱 독립성 검정(2x2)으로 교차 검증. plot_conversion_rate_with_ci()도
+         신규 함수 — A/B 선택률을 95% 신뢰구간과 함께 막대그래프로 보여준다.
     5) 효과크기          (원본: AB_TEST_SIMULATION.py 6번 섹션)
        — Cohen's h, 상대위험도, 오즈비, 파이 계수로 차이의 "크기"를 판단.
     6) CSV 추출          (원본: analyze.py의 export_csv)
@@ -244,7 +245,9 @@ def run_z_test(df: pd.DataFrame) -> dict:
     z_stat = diff / se_pooled
     p_value = 2 * norm.sf(abs(z_stat))
 
-    se_unpooled = (p_A * (1 - p_A) / n_A + p_B * (1 - p_B) / n_B) ** 0.5
+    se_A = (p_A * (1 - p_A) / n_A) ** 0.5
+    se_B = (p_B * (1 - p_B) / n_B) ** 0.5
+    se_unpooled = (se_A ** 2 + se_B ** 2) ** 0.5
     z_crit = norm.ppf(0.975)  # 95% 신뢰구간
     ci_low, ci_high = diff - z_crit * se_unpooled, diff + z_crit * se_unpooled
 
@@ -265,8 +268,38 @@ def run_z_test(df: pd.DataFrame) -> dict:
     print("=" * 55 + "\n")
 
     return {"n_A": n_A, "n_B": n_B, "x_A": x_A, "x_B": x_B,
-            "p_A": p_A, "p_B": p_B, "z_stat": z_stat, "p_value": p_value,
+            "p_A": p_A, "p_B": p_B, "se_A": se_A, "se_B": se_B,
+            "z_stat": z_stat, "p_value": p_value, "z_crit": z_crit,
             "chi2_stat": chi2_stat}
+
+
+def plot_conversion_rate_with_ci(z_test_result: dict) -> None:
+    """A군/B군 선택률(전환율)을 95% 신뢰구간과 함께 막대그래프로 시각화한다.
+
+    run_z_test()가 diff(A-B)에 대해 구했던 것과 같은 Wald 근사(z_crit ×
+    표준오차)를 각 군에 개별 적용한 신뢰구간이다 — 두 막대의 오차범위가
+    겹치지 않을수록 차이가 우연이 아닐 가능성이 높다는 걸 시각적으로 보여준다
+    (다만 통계적 유의성 판정 자체는 [4/6]의 z-검정 p-value를 따른다).
+    """
+    p_A, p_B = z_test_result["p_A"], z_test_result["p_B"]
+    se_A, se_B = z_test_result["se_A"], z_test_result["se_B"]
+    z_crit = z_test_result["z_crit"]
+
+    rates = [p_A * 100, p_B * 100]
+    ci_halfwidths = [z_crit * se_A * 100, z_crit * se_B * 100]
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+    bars = ax.bar(["A", "B"], rates, yerr=ci_halfwidths, capsize=10,
+                   color=["#4C72B0", "#DD8452"])
+    for bar, rate, half in zip(bars, rates, ci_halfwidths):
+        ax.text(bar.get_x() + bar.get_width() / 2, rate + half + 1.5,
+                 f"{rate:.1f}%", ha="center", fontsize=11)
+
+    ax.set_ylabel("선택률 (%)")
+    ax.set_title("A vs B 선택률(전환율) — 95% 신뢰구간")
+    ax.set_ylim(0, max(r + h for r, h in zip(rates, ci_halfwidths)) + 12)
+    fig.tight_layout()
+    plt.show()
 
 
 # ============================================================
@@ -338,5 +371,6 @@ if __name__ == "__main__":
     print_summary(df)
     plot_segment_conversion_rates(df)
     z_result = run_z_test(df)
+    plot_conversion_rate_with_ci(z_result)
     report_effect_size(z_result)
     export_csv(df)
