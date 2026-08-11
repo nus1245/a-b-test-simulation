@@ -29,7 +29,7 @@ AB_TEST_SIMULATION.py, analyze.py)를 아래 순서 하나의 흐름으로 병�
          카이제곱 독립성 검정(2x2)으로 교차 검증. plot_conversion_rate_with_ci()도
          신규 함수 — A/B 선택률을 95% 신뢰구간과 함께 막대그래프로 보여준다.
     5) 효과크기          (원본: AB_TEST_SIMULATION.py 6번 섹션)
-       — Cohen's h, 상대위험도, 오즈비, 파이 계수로 차이의 "크기"를 판단.
+       — Cohen's h, 상대위험도로 차이의 "크기"를 판단.
     6) CSV 추출          (원본: analyze.py의 export_csv)
 
 주의: 1)·2)는 게이트 단계라 경고만 출력하고 실행을 막지는 않는다 — 이상이
@@ -217,7 +217,7 @@ def plot_segment_conversion_rates(df: pd.DataFrame) -> None:
         ax.tick_params(axis="x", rotation=20)
         ax.legend(title="group")
 
-    fig.suptitle("세그먼트별 A vs B 선택률 비교 (참고용, 통계검정 아님)", fontsize=13)
+    fig.suptitle("세그먼트별 A vs B 선택률 비교 (참고용)", fontsize=13)
     fig.tight_layout()
     plt.show()
 
@@ -313,9 +313,6 @@ def cohens_h(p1: float, p2: float) -> float:
 
 def report_effect_size(z_test_result: dict) -> None:
     p_A, p_B = z_test_result["p_A"], z_test_result["p_B"]
-    n_A, n_B = z_test_result["n_A"], z_test_result["n_B"]
-    x_A, x_B = z_test_result["x_A"], z_test_result["x_B"]
-    chi2_stat = z_test_result["chi2_stat"]
 
     h = cohens_h(p_A, p_B)
     h_abs = abs(h)
@@ -329,10 +326,6 @@ def report_effect_size(z_test_result: dict) -> None:
         h_label = "매우 큼(very large)"
 
     risk_ratio = p_A / p_B
-    odds_A = x_A / (n_A - x_A)
-    odds_B = x_B / (n_B - x_B)
-    odds_ratio = odds_A / odds_B
-    phi = math.sqrt(chi2_stat / (n_A + n_B))  # 2x2에서는 Cramér's V와 동일
 
     print("=" * 55)
     print("  [5/6] 효과크기(Effect Size)")
@@ -340,8 +333,6 @@ def report_effect_size(z_test_result: dict) -> None:
     print(f"  절대 차이(A-B):      {(p_A - p_B) * 100:.1f}%p")
     print(f"  Cohen's h:           {h:.3f}  ({h_label})")
     print(f"  상대위험도(A/B):     {risk_ratio:.2f}배  (A가 B보다 {risk_ratio:.2f}배 더 많이 선택됨)")
-    print(f"  오즈비(odds ratio):  {odds_ratio:.2f}")
-    print(f"  파이 계수(phi):      {phi:.3f}")
     print("=" * 55 + "\n")
 
 
