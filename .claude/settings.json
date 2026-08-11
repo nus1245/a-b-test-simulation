@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile bot.py bot_pilot.py bot_main.py database.py app.py)",
+      "mcp__notion__notion-fetch",
+      "mcp__notion__notion-create-pages",
+      "mcp__notion__notion-update-page"
+    ]
+  }
+}
