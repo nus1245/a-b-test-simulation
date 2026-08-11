@@ -115,3 +115,6 @@ time_on, wishlist, selected, session_sec, reason, timestamp` — 방문자 1명 
 - 찜(wishlist) → 선택(selected) 전환율이 군별로 다른가?
 - 체류 시간(time_on)이 선택과 상관관계 있는가?
 - 이탈(viewed=false 또는 selected=false) 고객의 특성은?
+
+
+## 노션 기록 링크 : https://app.notion.com/p/King-coffee-A-B-3b222de4a4098155946adbc66bd6d880?source=copy_link
